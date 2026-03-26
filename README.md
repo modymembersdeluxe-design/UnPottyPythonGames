@@ -1,15 +1,16 @@
 # UnPotty Python Games - Mega Deluxe Prototype (Version 2)
 
 Updated prototype for **UnPotty Mega Deluxe Time Games V2** with:
-- longer animated sprites (`sprite_factory.py`)
+- longer animated sprites (`sprite_factory.py`) with emotion + outfit layers
 - longer generated feature sound effects (`sounds_factory.py`)
 - generated music tracks (`music_factory.py`) including `unpotty_trained`, `unpotty_trainined`, `potty_failed`, `poo_poo_song`
 - dynamic background + expanded controls in gameplay
 - longest V2 mega sequence that includes core events and per-item mega actions
+- runtime character emotion states (sad/angry/scared/pushing/happy) + item icons + toilet-paper finale pose
 
 ## Files
 
-- `unpotty_deluxe.py` - game loop, background rendering, controls, sequence logic, and V2 flow
+- `unpotty_deluxe.py` - game loop, background rendering, controls, sequence logic, V2 flow, emotion/outfit/item rendering
 - `game_data.py` - characters, level/items, longest V2 step sequence, sound mappings, control mapping
 - `game_date.py` - compatibility export module for requested naming
 - `sprite_factory.py` - procedural toddler/kid sprite frames (extended frame cycle)

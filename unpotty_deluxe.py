@@ -16,6 +16,7 @@ from enum import Enum, auto
 import pygame
 
 from asset_factory import prepare_all_assets
+from sprite_factory import render_character_pose, render_item_icon
 from game_data import (
     BACKGROUND_COLORS,
     CHARACTERS,
@@ -50,6 +51,10 @@ class Game:
         self.selected_character = "Toddler"
         self.selected_clothes = "Remove pants"
         self.selected_level = LEVELS[0]
+        self.current_emotion = "neutral"
+        self.shirt_on = True
+        self.pants_on = True
+        self.diaper_on = True
 
         self.script_index = 0
         self.target_index = 0
@@ -132,10 +137,13 @@ class Game:
                 self.selected_clothes = options[0]
                 self.stage = Stage.LEVEL_SELECT
                 self.play_sound("pants")
+                self.pants_on = False
             elif key == pygame.K_2 and len(options) > 1:
                 self.selected_clothes = options[1]
                 self.stage = Stage.LEVEL_SELECT
                 self.play_sound("diapers")
+                self.diaper_on = False
+                self.pants_on = False
 
         elif self.stage == Stage.LEVEL_SELECT:
             if key in (pygame.K_1, pygame.K_2):
@@ -167,6 +175,7 @@ class Game:
         step = MEGA_STEPS[self.script_index]
         self.log.append(step["text"])
         self.play_sound(step["sound"])
+        self.current_emotion = self.infer_emotion(step["text"], step["sound"])
 
         self.defecate_count += step["defecate"]
         self.fart_count += step["fart"]
@@ -179,6 +188,20 @@ class Game:
         if self.script_index >= len(MEGA_STEPS):
             self.log.extend(COMPLETION_MESSAGES)
             self.stage = Stage.COMPLETE
+
+    def infer_emotion(self, text: str, sound: str) -> str:
+        merged = f"{text.lower()} {sound.lower()}"
+        if "ready" in merged or "yaaay" in merged or "did it" in merged:
+            return "super_happy"
+        if "sad" in merged:
+            return "sad"
+        if "angry" in merged:
+            return "angry"
+        if "scared" in merged:
+            return "scared"
+        if "push" in merged or "fart" in merged or "defecate" in merged:
+            return "pushing"
+        return "happy"
 
     def draw_background(self) -> None:
         top = BACKGROUND_COLORS["top"]
@@ -218,12 +241,16 @@ class Game:
         title = self.big_font.render("UNPOTTY DELUXE VERSION 2 SUPER MEGA COLLECTION", True, (255, 238, 120))
         self.screen.blit(title, (40, 18))
 
-    def draw_character_preview(self, x: int = 920, y: int = 150) -> None:
-        key = "toddler_frames" if self.selected_character == "Toddler" else "kid_frames"
-        frames = self.assets[key]
-        idx = (self.frame_index // 8) % len(frames)
-        image = pygame.image.load(str(frames[idx])).convert_alpha()
-        self.screen.blit(image, (x, y))
+    def draw_character_preview(self, x: int = 920, y: int = 150, final_pose: bool = False) -> None:
+        sprite = render_character_pose(
+            character=self.selected_character,
+            emotion=self.current_emotion,
+            shirt_on=self.shirt_on,
+            pants_on=self.pants_on,
+            diaper_on=self.diaper_on,
+            hold_toilet_paper=final_pose,
+        )
+        self.screen.blit(sprite, (x, y))
 
     def draw_character_select(self) -> None:
         t = self.font.render("Select Character: [1] Toddler  [2] Kid", True, (230, 230, 240))
@@ -258,6 +285,8 @@ class Game:
             (65, 122),
         )
         self.screen.blit(self.small.render(f"Current target item: {self.current_target}", True, (255, 180, 180)), (65, 154))
+        item_icon = render_item_icon(self.current_target)
+        self.screen.blit(item_icon, (975, 120))
         self.screen.blit(self.small.render(f"Target progress: {self.target_index + 1}/{len(TARGET_ITEMS)}", True, (255, 210, 120)), (65, 184))
         self.screen.blit(
             self.small.render(f"Defecate: {self.defecate_count}   Fart: {self.fart_count}   Pee: {self.pee_count}", True, (170, 255, 170)),
@@ -283,7 +312,7 @@ class Game:
         ]
         for i, line in enumerate(lines):
             self.screen.blit(self.font.render(line, True, (230, 230, 240)), (160, 270 + i * 48))
-        self.draw_character_preview(x=950, y=300)
+        self.draw_character_preview(x=950, y=300, final_pose=True)
 
 
 def main() -> None:
