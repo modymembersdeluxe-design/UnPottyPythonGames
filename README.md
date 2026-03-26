@@ -1,0 +1,36 @@
+# UnPotty Python Games - Mega Deluxe Prototype (Version 2)
+
+Updated prototype for **UnPotty Mega Deluxe Time Games V2** with:
+- longer animated sprites (`sprite_factory.py`)
+- longer generated feature sound effects (`sounds_factory.py`)
+- generated music tracks (`music_factory.py`) including `unpotty_trained`, `unpotty_trainined`, `potty_failed`, `poo_poo_song`
+- dynamic background + expanded controls in gameplay
+- longest V2 mega sequence that includes core events and per-item mega actions
+
+## Files
+
+- `unpotty_deluxe.py` - game loop, background rendering, controls, sequence logic, and V2 flow
+- `game_data.py` - characters, level/items, longest V2 step sequence, sound mappings, control mapping
+- `game_date.py` - compatibility export module for requested naming
+- `sprite_factory.py` - procedural toddler/kid sprite frames (extended frame cycle)
+- `sounds_factory.py` - procedural feature SFX generation (longer tones)
+- `music_factory.py` - procedural music tracks
+- `asset_factory.py` - orchestrates all generators
+
+## Run
+
+```bash
+python3 -m pip install -r requirements.txt
+python3 unpotty_deluxe.py
+```
+
+## Gameplay controls
+
+- `1` / `2` select menu options
+- `SPACE` next mega step
+- `F/T/S/A/G/P/D/H/R/Y` manual feature sound triggers (`Y` = pee long)
+- `M` cycle generated music tracks
+- `R` restart on completion
+- `ESC` quit
+
+This project is intentionally comedic and exaggerated per request.
