@@ -72,12 +72,20 @@ class Game:
 
     def _load_sounds(self) -> None:
         self.sfx: dict[str, pygame.mixer.Sound] = {}
+        self.emotion_sfx: dict[str, pygame.mixer.Sound] = {}
+        self.item_sfx: dict[str, pygame.mixer.Sound] = {}
         try:
             pygame.mixer.init()
             for key, path in self.assets["sounds"].items():
                 self.sfx[key] = pygame.mixer.Sound(str(path))
+            for key, path in self.assets["emotion_layers"].items():
+                self.emotion_sfx[key] = pygame.mixer.Sound(str(path))
+            for key, path in self.assets["item_sounds"].items():
+                self.item_sfx[key] = pygame.mixer.Sound(str(path))
         except pygame.error:
             self.sfx = {}
+            self.emotion_sfx = {}
+            self.item_sfx = {}
 
     def _load_music(self) -> None:
         self.music_enabled = False
@@ -91,6 +99,16 @@ class Game:
 
     def play_sound(self, key: str) -> None:
         snd = self.sfx.get(key)
+        if snd:
+            snd.play()
+
+    def play_emotion_layer(self) -> None:
+        snd = self.emotion_sfx.get(self.current_emotion)
+        if snd:
+            snd.play()
+
+    def play_item_sound(self) -> None:
+        snd = self.item_sfx.get(self.current_target)
         if snd:
             snd.play()
 
@@ -176,6 +194,7 @@ class Game:
         self.log.append(step["text"])
         self.play_sound(step["sound"])
         self.current_emotion = self.infer_emotion(step["text"], step["sound"])
+        self.play_emotion_layer()
 
         self.defecate_count += step["defecate"]
         self.fart_count += step["fart"]
@@ -183,6 +202,7 @@ class Game:
 
         self.target_index = (self.target_index + 1) % len(TARGET_ITEMS)
         self.current_target = TARGET_ITEMS[self.target_index]
+        self.play_item_sound()
         self.script_index += 1
 
         if self.script_index >= len(MEGA_STEPS):
@@ -193,13 +213,13 @@ class Game:
         merged = f"{text.lower()} {sound.lower()}"
         if "ready" in merged or "yaaay" in merged or "did it" in merged:
             return "super_happy"
-        if "sad" in merged:
+        if "sad" in merged or "ahh" in merged:
             return "sad"
         if "angry" in merged:
             return "angry"
         if "scared" in merged:
             return "scared"
-        if "push" in merged or "fart" in merged or "defecate" in merged:
+        if "push" in merged or "fart" in merged or "defecate" in merged or "eeee" in merged or "ehhhh" in merged:
             return "pushing"
         return "happy"
 
@@ -294,7 +314,7 @@ class Game:
         )
         step_left = len(MEGA_STEPS) - self.script_index
         self.screen.blit(self.small.render(f"Press SPACE for next mega V2 step ({step_left} left)", True, (190, 210, 250)), (65, 250))
-        controls = "Controls: F/T/S/A/G/P/D/H/R/Y sounds, M music, SPACE next step"
+        controls = "Controls: F/T/S/A/G/P/D/H/R/Y sounds, M music, SPACE next step, auto item tones"
         self.screen.blit(self.small.render(controls, True, (190, 190, 250)), (65, 280))
 
         recent = self.log[-10:]
