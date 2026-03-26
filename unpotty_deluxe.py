@@ -9,13 +9,12 @@ Controls:
 
 from __future__ import annotations
 
-import random
 from enum import Enum, auto
 
 import pygame
 
 from asset_factory import prepare_all_assets
-from game_data import CHARACTERS, COMPLETION_MESSAGES, LEVELS, MEGA_SCRIPT, TARGET_ITEMS
+from game_data import CHARACTERS, COMPLETION_MESSAGES, LEVELS, MEGA_STEPS, TARGET_ITEMS
 
 
 class Stage(Enum):
@@ -29,7 +28,7 @@ class Stage(Enum):
 class Game:
     def __init__(self) -> None:
         pygame.init()
-        self.screen = pygame.display.set_mode((1180, 720))
+        self.screen = pygame.display.set_mode((1280, 760))
         pygame.display.set_caption("UnPotty Deluxe: Mega Collection")
         self.clock = pygame.time.Clock()
         self.big_font = pygame.font.SysFont("arial", 42, bold=True)
@@ -43,21 +42,22 @@ class Game:
         self.selected_level = LEVELS[0]
 
         self.script_index = 0
+        self.target_index = 0
         self.defecate_count = 0
         self.fart_count = 0
         self.pee_count = 0
-        self.current_target = random.choice(TARGET_ITEMS)
+        self.current_target = TARGET_ITEMS[self.target_index]
         self.log: list[str] = ["Let's go! Ready to go poo poo."]
+        self.frame_index = 0
 
         self._load_sounds()
 
     def _load_sounds(self) -> None:
-        self.sfx = {}
+        self.sfx: dict[str, pygame.mixer.Sound] = {}
         try:
             pygame.mixer.init()
-            self.sfx["fart"] = pygame.mixer.Sound(str(self.assets["fart"]))
-            self.sfx["poo"] = pygame.mixer.Sound(str(self.assets["poo"]))
-            self.sfx["win"] = pygame.mixer.Sound(str(self.assets["win"]))
+            for key, path in self.assets["sounds"].items():
+                self.sfx[key] = pygame.mixer.Sound(str(path))
         except pygame.error:
             self.sfx = {}
 
@@ -77,6 +77,7 @@ class Game:
                         running = False
                     self.handle_key(event.key)
 
+            self.frame_index += 1
             self.draw()
             pygame.display.flip()
             self.clock.tick(60)
@@ -97,14 +98,17 @@ class Game:
             if key == pygame.K_1:
                 self.selected_clothes = options[0]
                 self.stage = Stage.LEVEL_SELECT
+                self.play_sound("pants")
             elif key == pygame.K_2 and len(options) > 1:
                 self.selected_clothes = options[1]
                 self.stage = Stage.LEVEL_SELECT
+                self.play_sound("diapers")
 
         elif self.stage == Stage.LEVEL_SELECT:
             if key in (pygame.K_1, pygame.K_2):
                 self.selected_level = LEVELS[0]
                 self.stage = Stage.PLAYING
+                self.play_sound("ready_go_poo")
 
         elif self.stage == Stage.PLAYING and key == pygame.K_SPACE:
             self.advance_sequence()
@@ -113,26 +117,19 @@ class Game:
             self.__init__()
 
     def advance_sequence(self) -> None:
-        script_line = MEGA_SCRIPT[self.script_index % len(MEGA_SCRIPT)]
-        self.log.append(script_line)
+        step = MEGA_STEPS[self.script_index]
+        self.log.append(step["text"])
+        self.play_sound(step["sound"])
 
-        if "Defecate repeat 5" in script_line:
-            self.defecate_count += 5
-            self.fart_count += 5
-            self.pee_count += 5
-            self.play_sound("poo")
-            self.play_sound("fart")
-        elif "Fart longer" in script_line:
-            self.fart_count += 5
-            self.defecate_count += 1
-            self.play_sound("fart")
-        elif "Well done" in script_line:
-            self.play_sound("win")
+        self.defecate_count += step["defecate"]
+        self.fart_count += step["fart"]
+        self.pee_count += step["pee"]
 
-        self.current_target = random.choice(TARGET_ITEMS)
+        self.target_index = (self.target_index + 1) % len(TARGET_ITEMS)
+        self.current_target = TARGET_ITEMS[self.target_index]
         self.script_index += 1
 
-        if self.script_index >= len(MEGA_SCRIPT):
+        if self.script_index >= len(MEGA_STEPS):
             self.log.extend(COMPLETION_MESSAGES)
             self.stage = Stage.COMPLETE
 
@@ -155,11 +152,19 @@ class Game:
         title = self.big_font.render("UNPOTTY DELUXE SUPER MEGA COLLECTION", True, (255, 238, 120))
         self.screen.blit(title, (40, 18))
 
+    def draw_character_preview(self, x: int = 920, y: int = 150) -> None:
+        key = "toddler_frames" if self.selected_character == "Toddler" else "kid_frames"
+        frames = self.assets[key]
+        idx = (self.frame_index // 8) % len(frames)
+        image = pygame.image.load(str(frames[idx])).convert_alpha()
+        self.screen.blit(image, (x, y))
+
     def draw_character_select(self) -> None:
         t = self.font.render("Select Character: [1] Toddler  [2] Kid", True, (230, 230, 240))
         self.screen.blit(t, (60, 108))
-        t2 = self.small.render("Feature: hands to hole + funny mega tummy feeling events.", True, (180, 210, 255))
+        t2 = self.small.render("Feature: AI generated sprites + long sounds + mega tummy event chain.", True, (180, 210, 255))
         self.screen.blit(t2, (60, 148))
+        self.draw_character_preview()
 
     def draw_clothes_select(self) -> None:
         options = CHARACTERS[self.selected_character]["clothing"]
@@ -169,15 +174,19 @@ class Game:
         op2 = self.small.render(f"[2] {options[1]}", True, (255, 255, 255))
         self.screen.blit(op1, (80, 155))
         self.screen.blit(op2, (80, 186))
+        self.draw_character_preview()
 
     def draw_level_select(self) -> None:
         txt = self.font.render("Level Select", True, (230, 230, 240))
         self.screen.blit(txt, (60, 110))
         lvl = self.small.render("[1] Mega Level Un-Potty  (Press 1 to start)", True, (255, 255, 255))
         self.screen.blit(lvl, (80, 154))
+        sub = self.small.render("Target items are cycled through all listed devices & furniture.", True, (185, 205, 255))
+        self.screen.blit(sub, (80, 186))
+        self.draw_character_preview()
 
     def draw_playing(self) -> None:
-        card = pygame.Rect(40, 100, 1090, 560)
+        card = pygame.Rect(40, 100, 1200, 610)
         pygame.draw.rect(self.screen, (44, 36, 60), card, border_radius=20)
 
         stat = self.small.render(
@@ -188,36 +197,43 @@ class Game:
         self.screen.blit(stat, (65, 122))
         target = self.small.render(f"Current target item: {self.current_target}", True, (255, 180, 180))
         self.screen.blit(target, (65, 154))
+        progress = self.small.render(f"Target progress: {self.target_index + 1}/{len(TARGET_ITEMS)}", True, (255, 210, 120))
+        self.screen.blit(progress, (65, 184))
 
         counters = self.small.render(
             f"Defecate: {self.defecate_count}   Fart: {self.fart_count}   Pee: {self.pee_count}",
             True,
             (170, 255, 170),
         )
-        self.screen.blit(counters, (65, 188))
+        self.screen.blit(counters, (65, 218))
 
-        instr = self.small.render("Press SPACE to continue mega sequence", True, (190, 210, 250))
-        self.screen.blit(instr, (65, 220))
+        step_left = len(MEGA_STEPS) - self.script_index
+        instr = self.small.render(f"Press SPACE for next mega step ({step_left} steps left)", True, (190, 210, 250))
+        self.screen.blit(instr, (65, 250))
 
         log_title = self.small.render("Action Log:", True, (255, 255, 255))
-        self.screen.blit(log_title, (65, 264))
-        recent = self.log[-10:]
+        self.screen.blit(log_title, (65, 288))
+        recent = self.log[-11:]
         for i, line in enumerate(recent):
             line_surface = self.small.render(f"- {line}", True, (240, 240, 240))
-            self.screen.blit(line_surface, (82, 294 + i * 28))
+            self.screen.blit(line_surface, (82, 318 + i * 27))
+
+        self.draw_character_preview(x=940, y=330)
 
     def draw_complete(self) -> None:
         done = self.big_font.render("UN-POTTY COMPLETED", True, (140, 255, 140))
-        self.screen.blit(done, (250, 180))
+        self.screen.blit(done, (300, 160))
 
         lines = [
-            "Well done! Great job! No clean up! Ewwwww smell!",
-            "(laughing) more games unlocked.",
-            "Press R to restart.",
+            "I did it!! Great job!",
+            "No no clean up. Ewwww smell mode complete.",
+            "Yaaayyy! More games unlocked. Press R to restart.",
         ]
         for i, line in enumerate(lines):
             surf = self.font.render(line, True, (230, 230, 240))
-            self.screen.blit(surf, (170, 280 + i * 46))
+            self.screen.blit(surf, (160, 270 + i * 48))
+
+        self.draw_character_preview(x=950, y=300)
 
 
 def main() -> None:
