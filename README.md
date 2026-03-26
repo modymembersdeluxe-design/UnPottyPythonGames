@@ -1,23 +1,20 @@
 # UnPotty Python Games - Mega Deluxe Prototype
 
-Updated prototype for **UnPotty Mega Deluxe Time Games** with longer scripted flow, more generated sounds, and animated generated character sprite frames.
+Updated prototype for **UnPotty Mega Deluxe Time Games** with:
+- generated animated sprites (`sprite_factory.py`)
+- generated feature sound effects (`sounds_factory.py`)
+- generated music tracks (`music_factory.py`)
+- dynamic background + expanded controls in gameplay
 
-## Included files
+## Files
 
-- `unpotty_deluxe.py`
-  - character selection (Toddler/Kid)
-  - clothes-removal selection
-  - mega level selection
-  - long multi-step “feeling → tummy → scared → push → fart/poop/pee” event chain
-  - target-item cycle across the full mega item list
-- `game_data.py`
-  - character metadata
-  - mega target item list
-  - sound design map for many feature sounds
-  - long `MEGA_STEPS` sequence with per-step counters and sound keys
-- `asset_factory.py`
-  - procedural animated sprite-frame generation
-  - procedural longer synthesized sound generation for all feature sound cues
+- `unpotty_deluxe.py` - game loop, screens, background rendering, controls, sequence logic
+- `game_data.py` - characters, level/items, long step sequence, sound mappings, control mapping
+- `game_date.py` - compatibility export module for requested naming
+- `sprite_factory.py` - procedural toddler/kid sprite frames
+- `sounds_factory.py` - procedural feature SFX generation
+- `music_factory.py` - procedural music tracks (`unpotty_trained`, `potty_failed`, `poo_poo_song`)
+- `asset_factory.py` - orchestrates all generators
 
 ## Run
 
@@ -26,11 +23,13 @@ python3 -m pip install -r requirements.txt
 python3 unpotty_deluxe.py
 ```
 
-## Controls
+## Gameplay controls
 
 - `1` / `2` select menu options
-- `SPACE` advances to the next mega sequence step
-- `R` restart after completion
+- `SPACE` next mega step
+- `F/T/S/A/G/P/D/H/R` manual feature sound triggers
+- `M` cycle generated music tracks
+- `R` restart on completion
 - `ESC` quit
 
 This project is intentionally comedic and exaggerated per request.
