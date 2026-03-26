@@ -3,7 +3,7 @@
 Controls:
 - 1 / 2: choose options in each menu screen
 - SPACE: perform the next mega action
-- F/T/S/A/G/P/D/H/R: trigger feature feeling sounds during gameplay
+- F/T/S/A/G/P/D/H/R/Y: trigger feature feeling sounds during gameplay
 - M: cycle music tracks
 - R: restart when finished
 - ESC: quit
@@ -16,6 +16,7 @@ from enum import Enum, auto
 import pygame
 
 from asset_factory import prepare_all_assets
+from sprite_factory import render_character_pose, render_item_icon
 from game_data import (
     BACKGROUND_COLORS,
     CHARACTERS,
@@ -50,6 +51,10 @@ class Game:
         self.selected_character = "Toddler"
         self.selected_clothes = "Remove pants"
         self.selected_level = LEVELS[0]
+        self.current_emotion = "neutral"
+        self.shirt_on = True
+        self.pants_on = True
+        self.diaper_on = True
 
         self.script_index = 0
         self.target_index = 0
@@ -59,7 +64,7 @@ class Game:
         self.current_target = TARGET_ITEMS[self.target_index]
         self.log: list[str] = ["Let's go! Ready to go poo poo."]
         self.frame_index = 0
-        self.music_order = ["unpotty_trained", "poo_poo_song", "potty_failed"]
+        self.music_order = ["unpotty_trained", "unpotty_trainined", "poo_poo_song", "potty_failed"]
         self.music_idx = 0
 
         self._load_sounds()
@@ -67,12 +72,20 @@ class Game:
 
     def _load_sounds(self) -> None:
         self.sfx: dict[str, pygame.mixer.Sound] = {}
+        self.emotion_sfx: dict[str, pygame.mixer.Sound] = {}
+        self.item_sfx: dict[str, pygame.mixer.Sound] = {}
         try:
             pygame.mixer.init()
             for key, path in self.assets["sounds"].items():
                 self.sfx[key] = pygame.mixer.Sound(str(path))
+            for key, path in self.assets["emotion_layers"].items():
+                self.emotion_sfx[key] = pygame.mixer.Sound(str(path))
+            for key, path in self.assets["item_sounds"].items():
+                self.item_sfx[key] = pygame.mixer.Sound(str(path))
         except pygame.error:
             self.sfx = {}
+            self.emotion_sfx = {}
+            self.item_sfx = {}
 
     def _load_music(self) -> None:
         self.music_enabled = False
@@ -86,6 +99,16 @@ class Game:
 
     def play_sound(self, key: str) -> None:
         snd = self.sfx.get(key)
+        if snd:
+            snd.play()
+
+    def play_emotion_layer(self) -> None:
+        snd = self.emotion_sfx.get(self.current_emotion)
+        if snd:
+            snd.play()
+
+    def play_item_sound(self) -> None:
+        snd = self.item_sfx.get(self.current_target)
         if snd:
             snd.play()
 
@@ -132,10 +155,13 @@ class Game:
                 self.selected_clothes = options[0]
                 self.stage = Stage.LEVEL_SELECT
                 self.play_sound("pants")
+                self.pants_on = False
             elif key == pygame.K_2 and len(options) > 1:
                 self.selected_clothes = options[1]
                 self.stage = Stage.LEVEL_SELECT
                 self.play_sound("diapers")
+                self.diaper_on = False
+                self.pants_on = False
 
         elif self.stage == Stage.LEVEL_SELECT:
             if key in (pygame.K_1, pygame.K_2):
@@ -167,6 +193,8 @@ class Game:
         step = MEGA_STEPS[self.script_index]
         self.log.append(step["text"])
         self.play_sound(step["sound"])
+        self.current_emotion = self.infer_emotion(step["text"], step["sound"])
+        self.play_emotion_layer()
 
         self.defecate_count += step["defecate"]
         self.fart_count += step["fart"]
@@ -174,11 +202,26 @@ class Game:
 
         self.target_index = (self.target_index + 1) % len(TARGET_ITEMS)
         self.current_target = TARGET_ITEMS[self.target_index]
+        self.play_item_sound()
         self.script_index += 1
 
         if self.script_index >= len(MEGA_STEPS):
             self.log.extend(COMPLETION_MESSAGES)
             self.stage = Stage.COMPLETE
+
+    def infer_emotion(self, text: str, sound: str) -> str:
+        merged = f"{text.lower()} {sound.lower()}"
+        if "ready" in merged or "yaaay" in merged or "did it" in merged:
+            return "super_happy"
+        if "sad" in merged or "ahh" in merged:
+            return "sad"
+        if "angry" in merged:
+            return "angry"
+        if "scared" in merged:
+            return "scared"
+        if "push" in merged or "fart" in merged or "defecate" in merged or "eeee" in merged or "ehhhh" in merged:
+            return "pushing"
+        return "happy"
 
     def draw_background(self) -> None:
         top = BACKGROUND_COLORS["top"]
@@ -215,15 +258,19 @@ class Game:
             self.draw_complete()
 
     def draw_header(self) -> None:
-        title = self.big_font.render("UNPOTTY DELUXE SUPER MEGA COLLECTION", True, (255, 238, 120))
+        title = self.big_font.render("UNPOTTY DELUXE VERSION 2 SUPER MEGA COLLECTION", True, (255, 238, 120))
         self.screen.blit(title, (40, 18))
 
-    def draw_character_preview(self, x: int = 920, y: int = 150) -> None:
-        key = "toddler_frames" if self.selected_character == "Toddler" else "kid_frames"
-        frames = self.assets[key]
-        idx = (self.frame_index // 8) % len(frames)
-        image = pygame.image.load(str(frames[idx])).convert_alpha()
-        self.screen.blit(image, (x, y))
+    def draw_character_preview(self, x: int = 920, y: int = 150, final_pose: bool = False) -> None:
+        sprite = render_character_pose(
+            character=self.selected_character,
+            emotion=self.current_emotion,
+            shirt_on=self.shirt_on,
+            pants_on=self.pants_on,
+            diaper_on=self.diaper_on,
+            hold_toilet_paper=final_pose,
+        )
+        self.screen.blit(sprite, (x, y))
 
     def draw_character_select(self) -> None:
         t = self.font.render("Select Character: [1] Toddler  [2] Kid", True, (230, 230, 240))
@@ -258,14 +305,16 @@ class Game:
             (65, 122),
         )
         self.screen.blit(self.small.render(f"Current target item: {self.current_target}", True, (255, 180, 180)), (65, 154))
+        item_icon = render_item_icon(self.current_target)
+        self.screen.blit(item_icon, (975, 120))
         self.screen.blit(self.small.render(f"Target progress: {self.target_index + 1}/{len(TARGET_ITEMS)}", True, (255, 210, 120)), (65, 184))
         self.screen.blit(
             self.small.render(f"Defecate: {self.defecate_count}   Fart: {self.fart_count}   Pee: {self.pee_count}", True, (170, 255, 170)),
             (65, 218),
         )
         step_left = len(MEGA_STEPS) - self.script_index
-        self.screen.blit(self.small.render(f"Press SPACE for next mega step ({step_left} left)", True, (190, 210, 250)), (65, 250))
-        controls = "Controls: F feeling, T tummy, S scared, A sad, G angry, P pants, D diapers, H hands, R ready, M music"
+        self.screen.blit(self.small.render(f"Press SPACE for next mega V2 step ({step_left} left)", True, (190, 210, 250)), (65, 250))
+        controls = "Controls: F/T/S/A/G/P/D/H/R/Y sounds, M music, SPACE next step, auto item tones"
         self.screen.blit(self.small.render(controls, True, (190, 190, 250)), (65, 280))
 
         recent = self.log[-10:]
@@ -277,13 +326,13 @@ class Game:
     def draw_complete(self) -> None:
         self.screen.blit(self.big_font.render("UN-POTTY COMPLETED", True, (140, 255, 140)), (300, 160))
         lines = [
-            "I did it!!",
+            "I did it!! Version 2 complete!",
             "No no clean up / Not clean up.",
             "Ewwww smell completed poo poo. Yaaayyy! Press R to restart.",
         ]
         for i, line in enumerate(lines):
             self.screen.blit(self.font.render(line, True, (230, 230, 240)), (160, 270 + i * 48))
-        self.draw_character_preview(x=950, y=300)
+        self.draw_character_preview(x=950, y=300, final_pose=True)
 
 
 def main() -> None:
